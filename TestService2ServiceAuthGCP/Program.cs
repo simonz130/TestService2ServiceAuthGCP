@@ -36,12 +36,13 @@ namespace TestService2ServiceAuthGCP
             var fs = new FileStream(SERVICEACCOUNT_JSON_PATH, FileMode.Open);
             var credentialParameters = NewtonsoftJsonSerializer.Instance.Deserialize<JsonCredentialParameters>(fs);
             string privateKey = credentialParameters.PrivateKey;
+            string email = credentialParameters.ClientEmail;
             var privateKeyBytes = Encoding.ASCII.GetBytes(privateKey);
 
             // Request an OIDC token for the Cloud IAP-secured client ID
 
             // Generates a JWT signed with the service account's private key containing a special "target_audience" claim
-            var jwtBasedAccessToken = CreateAccessToken(privateKeyBytes, CLIENT_ID);
+            var jwtBasedAccessToken = CreateAccessToken(privateKeyBytes, CLIENT_ID, email);
             //var req = new Google.Apis.Auth.OAuth2.Requests.TokenRequest();
 
             var body = new Dictionary<string, string>
@@ -64,6 +65,11 @@ namespace TestService2ServiceAuthGCP
             return response;
         }
 
+        private static long ToUnixEpochDate(DateTime date)
+              => (long)Math.Round((date.ToUniversalTime() -
+                                   new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero))
+                                  .TotalSeconds);
+
         private static GoogleCredential GetCredential()
         {
             var json = @"C:\Users\zeltser\Downloads\My First Project-03044c8143c4.json";
@@ -74,17 +80,23 @@ namespace TestService2ServiceAuthGCP
 
             var credential = GoogleCredential.FromStream(stream);
             credential = credential.CreateScoped(scopes);
-
+            
             return credential;
         }
 
 
-        private static string CreateAccessToken(byte[] privateKey, string iapClientId)
+        private static string CreateAccessToken(byte[] privateKey, string iapClientId, string email)
         {
+            var currentTime = ToUnixEpochDate(DateTime.Now);
+            var expTime = ToUnixEpochDate(DateTime.Now.AddMinutes(10));
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Aud, "FSharpFunctions"),
+                new Claim(JwtRegisteredClaimNames.Aud, "https://www.googleapis.com/oauth2/v4/token"),
+                new Claim(JwtRegisteredClaimNames.Sub, email),
+                new Claim(JwtRegisteredClaimNames.Iat, currentTime.ToString()),
+                new Claim(JwtRegisteredClaimNames.Exp, expTime.ToString()),
+                new Claim(JwtRegisteredClaimNames.Iss, email),                
 
                 // We need to add this
                 new Claim("target_audience", iapClientId)
@@ -93,10 +105,7 @@ namespace TestService2ServiceAuthGCP
 
             var creds = new SigningCredentials(symmetricKey, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
-                issuer: "FSharpSample",
-                audience: OAUTH_TOKEN_URI,
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
                 signingCredentials: creds);
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
