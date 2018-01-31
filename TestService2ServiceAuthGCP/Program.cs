@@ -17,12 +17,15 @@ namespace TestService2ServiceAuthGCP
 {
     class Program
     {
-        private const string IAM_SCOPE = @"https://www.googleapis.com/auth/iam";
-        private const string OAUTH_TOKEN_URI = 
+        const string IAM_SCOPE = @"https://www.googleapis.com/auth/iam";
+
+        const string IAP_CLIENT_ID = 
+            @"356971158591-hj00r99smbb37q831a4h4r0l63m105kj.apps.googleusercontent.com";
+        const string OAUTH_TOKEN_URI = 
             "https://www.googleapis.com/oauth2/v4/token";
-        private static readonly string SERVICEACCOUNT_JSON_PATH =
+        static readonly string SERVICEACCOUNT_JSON_PATH =
             Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
-        private const string SAMPLE_APP_URL = "https://{0}.appspot.com";
+        const string SAMPLE_APP_URL = "https://{0}.appspot.com";
 
         static void Main(string[] args)
         {
@@ -41,7 +44,7 @@ namespace TestService2ServiceAuthGCP
             public string IdToken { get; set; }
         }
 
-        private static string MakeIapRequest()
+        static string MakeIapRequest()
         {
             Credentials credentials;
             // Generate JWT-based access token
@@ -54,13 +57,14 @@ namespace TestService2ServiceAuthGCP
             }
             string privateKey = credentials.PrivateKey;
             string email = credentials.ClientEmail;
-            string clientId = credentials.ClientId;
             string projectId = credentials.ProjectId;
 
             // Request an OIDC token for the Cloud IAP-secured client ID
 
-            // Generates a JWT signed with the service account's private key containing a special "target_audience" claim
-            var jwtBasedAccessToken = CreateAccessToken(privateKey, clientId, email);
+            // Generates a JWT signed with the service account's private key 
+            // containing a special "target_audience" claim
+            var jwtBasedAccessToken = 
+                CreateAccessToken(privateKey, IAP_CLIENT_ID, email);
             //var req = new Google.Apis.Auth.OAuth2.Requests.TokenRequest();
 
             var body = new Dictionary<string, string>
@@ -90,12 +94,12 @@ namespace TestService2ServiceAuthGCP
             return response;
         }
 
-        private static long ToUnixEpochDate(DateTime date)
+        static long ToUnixEpochDate(DateTime date)
               => (long)Math.Round((date.ToUniversalTime() -
                                    new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero))
                                   .TotalSeconds);
 
-        private static GoogleCredential GetCredential()
+        static GoogleCredential GetCredential()
         {
             var credential = GoogleCredential.FromFile(
                 SERVICEACCOUNT_JSON_PATH);
@@ -105,7 +109,7 @@ namespace TestService2ServiceAuthGCP
         }
 
 
-        private static string CreateAccessToken(string privateKey, 
+        static string CreateAccessToken(string privateKey, 
             string iapClientId, string email)
         {
             var now = DateTime.UtcNow;
