@@ -127,7 +127,7 @@ namespace TestService2ServiceAuthGCP
             SecurityKey key = new RsaSecurityKey(
                 Pkcs8.DecodeRsaParameters(privateKey));
             var creds = new SigningCredentials(key, 
-                SecurityAlgorithms.RsaSha256Signature);
+                SecurityAlgorithms.RsaSha256);
             var token = new JwtSecurityToken(
                 claims: claims,
                 signingCredentials: creds);
