@@ -70,6 +70,12 @@ namespace TestService2ServiceAuthGCP
 
             var result = httpClient.PostAsync(OAUTH_TOKEN_URI, httpContent).Result;
             var responseContent = result.Content.ReadAsStringAsync().Result;
+            int statusCode = (int) result.StatusCode;
+            if (statusCode < 200 || statusCode >= 300) 
+            {
+                throw new Exception(string.Format("{0} {1}\n{2}",
+                    statusCode, result.ReasonPhrase, responseContent));
+            }
             var objects = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseContent);
             var token = objects["access_token"];
 
@@ -98,8 +104,9 @@ namespace TestService2ServiceAuthGCP
         private static string CreateAccessToken(byte[] privateKey, 
             string iapClientId, string email)
         {
-            var currentTime = ToUnixEpochDate(DateTime.Now);
-            var expTime = ToUnixEpochDate(DateTime.Now.AddMinutes(10));
+            var now = DateTime.UtcNow;
+            var currentTime = ToUnixEpochDate(now);
+            var expTime = ToUnixEpochDate(now.AddMinutes(10));
 
             var claims = new[]
             {
