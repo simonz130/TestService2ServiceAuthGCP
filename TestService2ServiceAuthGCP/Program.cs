@@ -36,6 +36,11 @@ namespace TestService2ServiceAuthGCP
             public string ProjectId { get; set; }
         }
 
+        class IapRequestResponse {
+            [JsonProperty("id_token")]
+            public string IdToken { get; set; }
+        }
+
         private static string MakeIapRequest()
         {
             Credentials credentials;
@@ -72,16 +77,16 @@ namespace TestService2ServiceAuthGCP
             int statusCode = (int) result.StatusCode;
             if (statusCode < 200 || statusCode >= 300) 
             {
-                throw new Exception(string.Format("{0} {1}\n{2}",
+                throw new HttpRequestException(string.Format("{0} {1}\n{2}",
                     statusCode, result.ReasonPhrase, responseContent));
             }
-            var objects = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseContent);
-            var token = objects["access_token"];
+            var token = JsonConvert.DeserializeObject<IapRequestResponse>(
+                responseContent).IdToken;
 
             // Include the OIDC token in an Authorization: Bearer header to IAP-secured resource
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            string response = httpClient.GetStringAsync(
-                string.Format(SAMPLE_APP_URL, credentials.ProjectId)).Result;
+            string url = string.Format(SAMPLE_APP_URL, credentials.ProjectId);
+            string response = httpClient.GetStringAsync(url).Result;
             return response;
         }
 
