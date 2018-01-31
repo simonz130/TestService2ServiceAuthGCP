@@ -17,12 +17,12 @@ namespace TestService2ServiceAuthGCP
 {
     class Program
     {
-        private const string CLIENT_ID = @"438923197509-j19fltngs49gdupa71op22uev74gc6v8.apps.googleusercontent.com";
         private const string IAM_SCOPE = @"https://www.googleapis.com/auth/iam";
-        private const string OAUTH_TOKEN_URI = "https://www.googleapis.com/oauth2/v4/token";
-        private const string CLIENT_EMAIL = @"service-438923197509@gae-api-prod.google.com.iam.gserviceaccount.com";
-        private const string SERVICEACCOUNT_JSON_PATH = @"C:\Users\zeltser\Downloads\TestAuthService2Service-405c3e71ba78.json";
-        private const string SAMPLE_APP_URL = "https://testauthservice2service.appspot.com";
+        private const string OAUTH_TOKEN_URI = 
+            "https://www.googleapis.com/oauth2/v4/token";
+        private static readonly string SERVICEACCOUNT_JSON_PATH =
+            Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+        private const string SAMPLE_APP_URL = "https://{0}.appspot.com";
 
         static void Main(string[] args)
         {
@@ -30,19 +30,33 @@ namespace TestService2ServiceAuthGCP
             Console.WriteLine(response);
         }
 
+        class Credentials : JsonCredentialParameters
+        {
+            [JsonProperty("project_id")]
+            public string ProjectId { get; set; }
+        }
+
         private static string MakeIapRequest()
         {
+            Credentials credentials;
             // Generate JWT-based access token
-            var fs = new FileStream(SERVICEACCOUNT_JSON_PATH, FileMode.Open);
-            var credentialParameters = NewtonsoftJsonSerializer.Instance.Deserialize<JsonCredentialParameters>(fs);
-            string privateKey = credentialParameters.PrivateKey;
-            string email = credentialParameters.ClientEmail;
+            using (var fs = new FileStream(SERVICEACCOUNT_JSON_PATH, 
+                FileMode.Open, FileAccess.Read))
+            {
+                credentials = NewtonsoftJsonSerializer.Instance
+                    .Deserialize<Credentials>(fs);
+
+            }
+            string privateKey = credentials.PrivateKey;
+            string email = credentials.ClientEmail;
+            string clientId = credentials.ClientId;
+            string projectId = credentials.ProjectId;
             var privateKeyBytes = Encoding.ASCII.GetBytes(privateKey);
 
             // Request an OIDC token for the Cloud IAP-secured client ID
 
             // Generates a JWT signed with the service account's private key containing a special "target_audience" claim
-            var jwtBasedAccessToken = CreateAccessToken(privateKeyBytes, CLIENT_ID, email);
+            var jwtBasedAccessToken = CreateAccessToken(privateKeyBytes, clientId, email);
             //var req = new Google.Apis.Auth.OAuth2.Requests.TokenRequest();
 
             var body = new Dictionary<string, string>
@@ -61,7 +75,8 @@ namespace TestService2ServiceAuthGCP
 
             // Include the OIDC token in an Authorization: Bearer header to IAP-secured resource
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            string response = httpClient.GetStringAsync(SAMPLE_APP_URL).Result;
+            string response = httpClient.GetStringAsync(
+                string.Format(SAMPLE_APP_URL, credentials.ProjectId)).Result;
             return response;
         }
 
@@ -72,27 +87,23 @@ namespace TestService2ServiceAuthGCP
 
         private static GoogleCredential GetCredential()
         {
-            var json = @"C:\Users\zeltser\Downloads\My First Project-03044c8143c4.json";
-
-            string[] scopes = new string[] { IAM_SCOPE }; // Put your scopes here
-
-            var stream = new FileStream(json, FileMode.Open, FileAccess.Read);
-
-            var credential = GoogleCredential.FromStream(stream);
-            credential = credential.CreateScoped(scopes);
+            var credential = GoogleCredential.FromFile(
+                SERVICEACCOUNT_JSON_PATH);
+            credential = credential.CreateScoped(new string[] { IAM_SCOPE });
             
             return credential;
         }
 
 
-        private static string CreateAccessToken(byte[] privateKey, string iapClientId, string email)
+        private static string CreateAccessToken(byte[] privateKey, 
+            string iapClientId, string email)
         {
             var currentTime = ToUnixEpochDate(DateTime.Now);
             var expTime = ToUnixEpochDate(DateTime.Now.AddMinutes(10));
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Aud, "https://www.googleapis.com/oauth2/v4/token"),
+                new Claim(JwtRegisteredClaimNames.Aud, OAUTH_TOKEN_URI),
                 new Claim(JwtRegisteredClaimNames.Sub, email),
                 new Claim(JwtRegisteredClaimNames.Iat, currentTime.ToString()),
                 new Claim(JwtRegisteredClaimNames.Exp, expTime.ToString()),
