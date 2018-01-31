@@ -51,12 +51,11 @@ namespace TestService2ServiceAuthGCP
             string email = credentials.ClientEmail;
             string clientId = credentials.ClientId;
             string projectId = credentials.ProjectId;
-            var privateKeyBytes = Encoding.ASCII.GetBytes(privateKey);
 
             // Request an OIDC token for the Cloud IAP-secured client ID
 
             // Generates a JWT signed with the service account's private key containing a special "target_audience" claim
-            var jwtBasedAccessToken = CreateAccessToken(privateKeyBytes, clientId, email);
+            var jwtBasedAccessToken = CreateAccessToken(privateKey, clientId, email);
             //var req = new Google.Apis.Auth.OAuth2.Requests.TokenRequest();
 
             var body = new Dictionary<string, string>
@@ -101,7 +100,7 @@ namespace TestService2ServiceAuthGCP
         }
 
 
-        private static string CreateAccessToken(byte[] privateKey, 
+        private static string CreateAccessToken(string privateKey, 
             string iapClientId, string email)
         {
             var now = DateTime.UtcNow;
@@ -125,9 +124,10 @@ namespace TestService2ServiceAuthGCP
             //   https://github.com/GoogleCloudPlatform/java-docs-samples/blob/master/iap/src/main/java/com/example/iap/BuildIapRequest.java
             //   https://github.com/GoogleCloudPlatform/php-docs-samples/blob/master/iap/src/make_iap_request.php
 
-            var symmetricKey = new SymmetricSecurityKey(privateKey);
-
-            var creds = new SigningCredentials(symmetricKey, SecurityAlgorithms.HmacSha256);
+            SecurityKey key = new RsaSecurityKey(
+                Pkcs8.DecodeRsaParameters(privateKey));
+            var creds = new SigningCredentials(key, 
+                SecurityAlgorithms.RsaSha256Signature);
             var token = new JwtSecurityToken(
                 claims: claims,
                 signingCredentials: creds);
