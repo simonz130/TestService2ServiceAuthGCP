@@ -119,6 +119,12 @@ namespace TestService2ServiceAuthGCP
                 // We need to add this
                 new Claim("target_audience", iapClientId)
             };
+            // Both the PHP and Java samples use RS256 for signing.
+            // https://tools.ietf.org/html/draft-ietf-oauth-json-web-token-32#section-8
+            // Samples:
+            //   https://github.com/GoogleCloudPlatform/java-docs-samples/blob/master/iap/src/main/java/com/example/iap/BuildIapRequest.java
+            //   https://github.com/GoogleCloudPlatform/php-docs-samples/blob/master/iap/src/make_iap_request.php
+
             var symmetricKey = new SymmetricSecurityKey(privateKey);
 
             var creds = new SigningCredentials(symmetricKey, SecurityAlgorithms.HmacSha256);
